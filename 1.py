@@ -7,6 +7,7 @@ def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "dict"):
     dtype = "dict" return a dictionnary {'1979': 7.556, '1980': 8.244,...} 
     dtype = "array" return a np.array [7.556, 8.244, ...]
     """
+    
     ds = xr.open_dataset(file)
     if dtype == "dict":
         september_sie = {}
