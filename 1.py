@@ -33,3 +33,4 @@ def plot(sept_sie):
     plt.show()
 
 plot(extract_data(dtype ="array"))
+print('test')
