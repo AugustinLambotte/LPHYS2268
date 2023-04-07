@@ -31,8 +31,6 @@ def plot(sept_sie, a, b):
     """ sept_sie must be an array
     """
     def trend_line(year,a,b):
-        #mean_year = 2000.5
-        #year -= mean_year
         return b + a*year
 
     plt.plot([year for year in range(1979,2022)], sept_sie)
@@ -42,7 +40,8 @@ def plot(sept_sie, a, b):
     plt.show()
 
 def trend_line_coeff(sept_sie):
-    """ sept_sie must be a dict
+    """ sept_sie must be a dict. Return the two coefficient a and b of the linear trend.
+    Return also a simple forecast of the sept_2023 SIE based on this trend
     """
     mean_sie = np.mean([sie for sie in sept_sie.values()])
     mean_year = 2000.5
@@ -53,7 +52,11 @@ def trend_line_coeff(sept_sie):
         denum += (year - mean_year)**2
     a = num/denum
     b = mean_sie - a * mean_year
-    return a,b
+    forecast = b + a * 2023
+    return a,b, forecast
+
+
     
-a,b = trend_line_coeff(extract_data(dtype="dict"))
+a,b, forecast = trend_line_coeff(extract_data(dtype="dict"))
+print(forecast)
 plot(extract_data(dtype = "array"),a,b)
