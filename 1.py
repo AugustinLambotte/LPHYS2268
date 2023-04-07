@@ -1,6 +1,7 @@
 import xarray as xr 
 from datetime import datetime, date, timedelta
 import numpy as np
+import matplotlib.pyplot as plt
 
 def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "dict"):
     """ Extract september Sea Ice extent (sie) from 1979 to 2022. can return the data in two different parts depending on dtype parameter:
@@ -25,3 +26,10 @@ def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "dict"):
     ds.close()
     return september_sie
 
+def plot(sept_sie):
+    plt.plot([year for year in range(1979,2022)], sept_sie)
+    plt.grid()
+    plt.title("Sea ice extent in September")
+    plt.show()
+
+plot(extract_data(dtype ="array"))
