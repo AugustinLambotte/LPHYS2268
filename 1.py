@@ -36,6 +36,7 @@ def plot(sept_sie, a, b):
     plt.plot([year for year in range(1979,2022)], sept_sie)
     plt.plot([year for year in range(1979,2022)], [trend_line(year,a,b) for year in range(1979,2022)])
     plt.grid()
+    plt.ylabel('SIE [1e6 km^2]')
     plt.title("Sea ice extent in September")
     plt.show()
 
