@@ -4,30 +4,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
-def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "array"):
-    """ Extract september Sea Ice extent (sie) from 1979 to 2022. can return the data in two different parts depending on dtype parameter:
+def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "array", month = 9):
+    """ Extract Sea Ice extent (sie) from 1979 to 2022 for the month "month".
+    Can return the data in two different parts depending on dtype parameter:
     dtype = "dict" return a dictionnary {1979: 7.556, 1980: 8.244,...} 
     dtype = "array" return a np.array [7.556, 8.244, ...]
     """
     ds = xr.open_dataset(file)
     if dtype == "dict":
-        september_sie = {}
+        sie = {}
         for year in range(1979,2022):
-            september_sie[year] = float(ds['sie'].sel(time = datetime(year,9,16)))
+            sie[year] = float(ds['sie'].sel(time = datetime(year,month,16)))
         
     elif dtype == "array":
-        september_sie = []
+        sie = []
         for year in range(1979,2022):
-            september_sie.append(float(ds['sie'].sel(time = datetime(year,9,16))))
-        september_sie = np.array(september_sie)
+            sie.append(float(ds['sie'].sel(time = datetime(year,month,16))))
+        sie = np.array(sie)
     else:
         print("! Incorrect data type !")
         ds.close()
         return 0
     ds.close()
-    return september_sie
+    return sie
 
-def plot(sept_sie, a, b):
+def plot_data(sept_sie, a, b):
     """ sept_sie must be an array
     """
     def trend_line(year,a,b):
@@ -56,8 +57,16 @@ def trend_line_coeff(sept_sie):
     forecast = b + a * 2023
     return a,b, forecast
 
-
+def APF(year, may_sie, sept_sie):
+    """ Anomaly Persistence forecast"""
+    nb_year = year - 1979
+    obs_sept_mean = np.mean([sept_sie[year] for year in range(1979,year)])
+    obs_may_mean = np.mean([may_sie[year] for year in range(1979,year)])
     
+    Forecast_mean = obs_sept_mean + (may_sie[year] - obs_may_mean)     #Eq (2) in instruction
+    Forecast_var = (1/nb_year) * (np.var([may_sie[year] for year in range(1979,year)]) + np.var([sept_sie[year] for year in range(1979,year)]))    #Eq(3) in instruction
+    return Forecast_mean, Forecast_var
+
+sept_sie = extract_data(dtype="dict", month=9)
+may_sie = extract_data(dtype="dict", month=5)
 a,b, forecast = trend_line_coeff(extract_data(dtype="dict"))
-print(forecast)
-plot(extract_data(dtype = "array"),a,b)
