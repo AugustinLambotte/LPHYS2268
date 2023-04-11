@@ -14,12 +14,12 @@ def extract_data(file = "./Data/osisaf_nh_sie_monthly.nc", dtype = "dict", month
     ds = xr.open_dataset(file)
     if dtype == "dict":
         sie = {}
-        for year in range(1979,2022):
+        for year in range(1979,2023):
             sie[year] = float(ds['sie'].sel(time = datetime(year,month,16)))
         
     elif dtype == "array":
         sie = []
-        for year in range(1979,2022):
+        for year in range(1979,2023):
             sie.append(float(ds['sie'].sel(time = datetime(year,month,16))))
         sie = np.array(sie)
     else:
@@ -107,7 +107,6 @@ def proba_LPY(year, may_sie, sept_sie):
     Last_year_sept_sie = sept_sie[year-1]
     #Compute the probability of the BTL event
     proba_LPY = norm.cdf((Last_year_sept_sie - Forecast_mean)/Forecast_std)
-    print(f'year = {year} --- mu = {(Last_year_sept_sie - Forecast_mean)/Forecast_std}')
     return proba_LPY
 
 def Forecast_LPY():
@@ -125,7 +124,33 @@ def Forecast_LPY():
     axs[1].title.set_text("Sea ice extent in September. Forecasted values with 2 times std.")
     plt.show()
 
+def Brier_Score_LPY():
+
+    # For each year btwn 1981 and 2023 (included) compute the probability of LPY event and store it in "Forecast" array.
+    Forecast = []
+    for year in range(1981,2023):
+        Forecast.append(proba_LPY(year,sept_sie,may_sie))
+
+    observation = []
+    for year in range(1981,2023):
+        last_year_sie = sept_sie[year-1]
+        current_year_sie = sept_sie[year]
+        
+        #LPY = 1 if event occurs and LPY = 0 if not
+        if last_year_sie > current_year_sie:
+            LPY = 1
+        else: 
+            LPY = 0
+        observation.append(LPY)
+    Forecast = np.array(Forecast)
+    observation = np.array(observation)
+
+    BS = 1/(len(Forecast)) * np.sum(ma.masked_invalid([(Forecast[i] - observation[i])**2 for i in range(len(Forecast))])) # First equation in "Question8"
+    
+    return BS
+
 sept_sie = extract_data(dtype="dict", month=9)
 may_sie = extract_data(dtype="dict", month=5)
-a,b,forecast = trend_line_coeff(sept_sie)
-Forecast_LPY()
+print(may_sie)
+""" a,b,forecast = trend_line_coeff(sept_sie)
+Forecast_LPY() """
