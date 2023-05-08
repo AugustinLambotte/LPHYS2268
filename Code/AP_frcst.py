@@ -118,8 +118,6 @@ class AP_frcst():
         proba_BTL = norm.cdf((trend_line_forecast - Forecast_mean)/Forecast_std)
         return proba_BTL
 
-    
-
     def Forecast_LPY(self):
         def proba_LPY(year):
             """ Return the Probability (btwn 0 and 1) that sie will be Less than Previous Year (LPY)

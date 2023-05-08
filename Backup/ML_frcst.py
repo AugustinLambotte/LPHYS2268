@@ -6,11 +6,9 @@ import numpy.ma as ma
 import tensorflow as tf
 from scipy.stats import norm
 from tensorflow import keras
-from keras.layers import Dense, Lambda
 from sklearn.preprocessing import StandardScaler,OneHotEncoder
 import io
 import seaborn as sns
-
 class ML_frcst():
 
     def __init__(self, NN_model = './Machine_Learning/Models/NN2',file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
@@ -123,7 +121,7 @@ class ML_frcst():
                 pred_km[sample_pred] = predicted_val
             
             pred_km += 4*1e6 """
-            pred_km = [float(pred_km[i,0]) for i in range(len(pred_km))]
+
             return pred_km,np.ones(len(pred_km))
         
         def post_process():
@@ -155,7 +153,7 @@ class ML_frcst():
             axs[0].scatter(forecast,[self.sept_sie[year-1980] for year in range(1980,2023)], label ='Forecast')
             
             # Display the diagonal
-            axs[0].plot([0,1e8],[0,1e8],color = 'grey', linestyle='dashed')
+            axs[0].plot([0,100],[0,100],color = 'grey', linestyle='dashed')
 
             # Display the trend line of post-processed data.
             sns.regplot(x=new_forecast, y=[self.sept_sie[i] for i in range(1,len(self.sept_sie))], ci=False, line_kws={'color':'blue', 'linestyle':'dashed'}, ax=axs[0])
@@ -164,6 +162,8 @@ class ML_frcst():
             sns.regplot(x=forecast, y=[self.sept_sie[i] for i in range(1,len(self.sept_sie))], ci=False, line_kws={'color':'orange','linestyle':'dashed'}, ax=axs[0])
 
             # Scatter plots
+            axs[0].set_xlim(3.5,10)
+            axs[0].set_ylim(3.5,9)
             axs[0].grid()
             axs[0].legend()
             axs[0].set_xlabel('September SIE forecasted [1e6km^2]')
@@ -180,8 +180,6 @@ class ML_frcst():
 
             plt.show()
         self.forecast_mean,self.forecast_std = new_forecast, std
-
-
 
     def Forecast_LPY2(self):
         """
@@ -232,4 +230,6 @@ class ML_frcst():
         plt.show()
 ML_frcst = ML_frcst()
 
-ML_frcst.regression_forecast()
+
+ML_frcst.Forecast_septSIE(show = True)
+ML_frcst.Forecast_LPY2()
