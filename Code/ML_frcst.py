@@ -7,14 +7,14 @@ import tensorflow as tf
 from scipy.stats import norm
 from tensorflow import keras
 from keras.layers import Dense, Lambda
-from sklearn.preprocessing import StandardScaler,OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 import io
 import seaborn as sns
 
 import NN_model
 class ML_frcst():
 
-    def __init__(self,epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
+    def __init__(self,is_siv = True, epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
         
         def data_arange(SIE,SIV):
             """
@@ -25,8 +25,10 @@ class ML_frcst():
 
             sept_to_dec_last_year_siv = SIV[:-1,8:]
             jan_to_may_current_year_siv = SIV[1:,:5]
-            x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
-            #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
+            if self.is_siv:
+                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
+            else:
+                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
@@ -48,13 +50,18 @@ class ML_frcst():
                     SIE[year-1979,month-1] = float(ds['sie'].sel(time = datetime(year,month,16)))*1e6
             ds.close()
             return SIE
+        
+        self.is_siv = is_siv
+        self.SIE = extract_SIE() #[km^2]
+        
+        
         # Creating the neural model
-        NN = NN_model.NN()
+        NN = NN_model.NN(is_siv = self.is_siv)
         NN.form()
         NN.constr(epochs = epochs)
         self.model = NN.model_SIEFrcst
 
-        self.SIE = extract_SIE() #[km^2]
+        
         self.sept_sie = self.SIE[:,8] #[km^2]
         self.SIV = extract_SIV() #[km^3]     
         self.sie_range = sie_range #[km^2]
@@ -83,6 +90,12 @@ class ML_frcst():
         
         # Forecasting of mean and std
         forecast = self.model.predict(self.x)
+        mask = np.zeros((len(forecast),2))
+        mask[6,0] = 1
+        mask[6,1] = 1
+        mask[8,0] = 1
+        mask[8,1] = 1
+        forecast = ma.array(forecast, mask = mask)
         mean_frcsted = forecast[:,0]
         std_frcsted = forecast[:,1]
 
@@ -140,11 +153,16 @@ class ML_frcst():
                 else: 
                     LPY = 0
                 observation.append(LPY)
-            Forecast = np.array(proba_LPY)
-            observation = np.array(observation)
-            observed_occurence_frequence = np.sum(observation)/len(observation)
-            self.BS = 1/(len(Forecast)) * np.sum(ma.masked_invalid([(Forecast[i] - observation[i])**2 for i in range(len(Forecast))])) # First equation in "Question8"
-            BS_ref = 1/(len(observation)) * np.sum([(observed_occurence_frequence - observation[i])**2 for i in range(len(observation))])
+            mask = np.zeros(len(observation))
+            mask[6] = 1
+            mask[8] = 1
+            
+            #we delete the observartions and forecast for 1986 nad 1988 because not enough data.
+            observation = np.delete(observation,[6,8])
+
+            observed_occurence_frequence = np.sum(observation)/(len(observation))
+            self.BS = 1/(len(proba_LPY)) * np.sum(ma.masked_invalid([(proba_LPY[i] - observation[i])**2 for i in range(len(proba_LPY))])) # First equation in "Question8"
+            BS_ref = 1/(len(observation)) * np.sum([(observed_occurence_frequence - observation_)**2 for observation_ in observation])
             self.BSS = (self.BS - BS_ref)/(-BS_ref)
             self.observation = observation
         
@@ -154,14 +172,14 @@ class ML_frcst():
             Last_year_sept_sie = self.sept_sie[year]
             #Compute the probability of the LPY event
             proba_LPY[year] = norm.cdf((Last_year_sept_sie - self.mean_frcsted[year])/self.std_frcsted[year])
-
+        proba_LPY = np.delete(proba_LPY,[6,8])
         
         Brier_score(proba_LPY) # Creation of self.BS and self.BSS
         fig, axs = plt.subplots(nrows = 2, ncols = 1)
-        axs[0].bar([year for year in range(1980,2023)],[proba_LPY[year] - 0.5 for year in range(len(proba_LPY))])
+        axs[0].bar([year for year in np.delete(np.arange(1980,2023),[6,8])],[proba_LPY[year] - 0.5 for year in range(len(proba_LPY))])
         axs[0].title.set_text(f'Forecasted probability that the sie will be less than previous year.\n BS = {self.BS}, BSS = {self.BSS}')
         axs[0].set_ylabel('P(Less SIE) - P(More SIE)')
-        axs[0].scatter([year for year in range(1980,2023)],[self.observation[year] -1/2 for year in range(len(self.observation))])
+        axs[0].scatter([year for year in np.delete(np.arange(1980,2023),[6,8])],[self.observation[year] -1/2 for year in range(len(self.observation))])
         axs[0].grid()
 
         axs[1].plot([year for year in range(1979,2023)], [self.sept_sie[year-1979] for year in range(1979,2023)], label = 'Observed')
@@ -171,6 +189,8 @@ class ML_frcst():
         axs[1].set_ylabel('SIE [1e6 km^2]')
         axs[1].title.set_text("Sea ice extent in September. ")
         plt.show()
-ML_frcst = ML_frcst(epochs = 10)
-ML_frcst.SIE_frcst(show = True)
+
+
+ML_frcst = ML_frcst(epochs = 30, is_siv=True)
+ML_frcst.SIE_frcst(show = False)
 ML_frcst.LPY()

@@ -13,7 +13,7 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN:
-    def __init__(self,file_siv = 'Machine_Learning/Data/SIV_mensual_90-5100_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_90-5100_plsm.txt'):
+    def __init__(self,is_siv,file_siv = 'Machine_Learning/Data/SIV_mensual_90-5100_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_90-5100_plsm.txt'):
         """
             This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on SIE and SIV (Sea ice volume) data from last September to current May.
@@ -27,7 +27,7 @@ class NN:
 
             Once created, these models can be test with self.test_LPY() and self.test_SIEfrcst(), respectively.
         """
-        def data_arange(SIE_plsm,SIV_plsm, SIE_CESM1, SIV_CESM1, SIE_CESM2, SIV_CESM2):
+        def data_arange(SIE_data,SIV_data):
             """
                 Return:
                     x: An array with the mensual SIE from September of the previous year to may of the current (both included)
@@ -37,83 +37,69 @@ class NN:
 
                     y: An array of SIE september data, this will be used to compare with the data output.       
             """
-            month_range_SIE = [9,5] #Range of month which will be used for predictant (e.g. [9,5] -> We use data from last sept to current may)
-            month_range_SIV = [9,5]
+            month_range_SIE = [12,5] #Range of month which will be used for predictant (e.g. [9,5] -> We use data from last sept to current may)
+            month_range_SIV = [12,5]
+            x = np.array([])
+            for SIE,SIV in zip(SIE_data,SIV_data):
+                sept_to_dec_last_year_sie = SIE[:-1,month_range_SIE[0]-1:]
+                jan_to_may_current_year_sie = SIE[1:,:month_range_SIE[1]]
 
-            ############# - PLASIM - #############
+                sept_to_dec_last_year_siv = SIV[:-1,month_range_SIV[0]-1:]
+                jan_to_may_current_year_siv = SIV[1:,:month_range_SIV[1]]
+                if self.is_siv:
+                    current = np.concatenate((sept_to_dec_last_year_sie,
+                                jan_to_may_current_year_sie,
+                                sept_to_dec_last_year_siv, 
+                                jan_to_may_current_year_siv),axis = 1) 
+                else: 
+                    current = np.concatenate((sept_to_dec_last_year_sie,
+                                    jan_to_may_current_year_sie),axis = 1) 
+                
+                if len(x) == 0:
+                    x = current
+                else:
+                    x = np.concatenate((x,current))
 
-            sept_to_dec_last_year_sie_plsm = SIE_plsm[:-1,month_range_SIE[0]-1:]
-            jan_to_may_current_year_sie_plsm = SIE_plsm[1:,:month_range_SIE[1]]
-
-            sept_to_dec_last_year_siv_plsm = SIV_plsm[:-1,month_range_SIV[0]-1:]
-            jan_to_may_current_year_siv_plsm = SIV_plsm[1:,:month_range_SIV[1]]
-
-            plsm_input = np.concatenate((sept_to_dec_last_year_sie_plsm,
-                                jan_to_may_current_year_sie_plsm,
-                                sept_to_dec_last_year_siv_plsm, 
-                                jan_to_may_current_year_siv_plsm),axis = 1)
-            
-            """ plsm_input = np.concatenate((sept_to_dec_last_year_sie_plsm,
-                                jan_to_may_current_year_sie_plsm),axis = 1) """
-            
-             ############# - CESM 2 - #############
-           
-            sept_to_dec_last_year_sie_cesm1 = SIE_CESM1[:-1,month_range_SIE[0]-1:]
-            jan_to_may_current_year_sie_cesm1 = SIE_CESM1[1:,:month_range_SIE[1]]
-
-            sept_to_dec_last_year_siv_cesm1 = SIV_CESM1[:-1,month_range_SIV[0]-1:]
-            jan_to_may_current_year_siv_cesm1 = SIV_CESM1[1:,:month_range_SIV[1]]
-
-            cesm1_input = np.concatenate((sept_to_dec_last_year_sie_cesm1,
-                                jan_to_may_current_year_sie_cesm1,
-                                sept_to_dec_last_year_siv_cesm1, 
-                                jan_to_may_current_year_siv_cesm1),axis = 1)
-            
-            """ cesm1_input = np.concatenate((sept_to_dec_last_year_sie_cesm1,
-                                jan_to_may_current_year_sie_cesm1),axis = 1) """
-            
-            ############# - CESM 1 - #############
-
-            sept_to_dec_last_year_sie_cesm2 = SIE_CESM2[:-1,month_range_SIE[0]-1:]
-            jan_to_may_current_year_sie_cesm2 = SIE_CESM2[1:,:month_range_SIE[1]]
-
-            sept_to_dec_last_year_siv_cesm2 = SIV_CESM2[:-1,month_range_SIV[0]-1:]
-            jan_to_may_current_year_siv_cesm2 = SIV_CESM2[1:,:month_range_SIV[1]]
-
-            cesm2_input = np.concatenate((sept_to_dec_last_year_sie_cesm2,
-                                jan_to_may_current_year_sie_cesm2,
-                                sept_to_dec_last_year_siv_cesm2, 
-                                jan_to_may_current_year_siv_cesm2),axis = 1)
-            
-            """ cesm2_input = np.concatenate((sept_to_dec_last_year_sie_cesm2,
-                                jan_to_may_current_year_sie_cesm2),axis = 1) """
-            
-
-            x = np.concatenate((plsm_input, cesm1_input,cesm2_input),axis = 0)
-            #x = np.concatenate((cesm1_input,cesm2_input),axis = 0)
-
-            sept_plsm = SIE_plsm[1:,8:9]
-            sept_cesm1 = SIE_CESM1[1:,8:9]
-            sept_cesm2 = SIE_CESM2[1:,8:9]
-            y = np.concatenate((sept_plsm, sept_cesm1,sept_cesm2), axis = 0)
-            #y = np.concatenate(( sept_cesm1,sept_cesm2), axis = 0)
-
+            y = np.array([]) 
+            for SIE in SIE_data:
+                current = SIE[1:,8:9]
+                if len(y) == 0:
+                    y = current
+                else:
+                    y = np.concatenate((y,current))
             return x,y
+
+        self.is_siv = is_siv
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
         SIV_mensual_plsm = np.genfromtxt(file_siv, delimiter =' ')
 
-        SIE_mensual_CESM1 = np.genfromtxt('Machine_Learning/Data/CMIP/SIE_CESM1.txt', delimiter = ' ')
-        SIV_mensual_CESM1 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM1.txt', delimiter = ' ')
+        #SIE_mensual_plsm = SIE_mensual_plsm[:,1000:3000]
+        #SIV_mensual_plsm = SIV_mensual_plsm[:,1000:3000]
 
+        
         SIE_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIE_CESM2.txt', delimiter = ' ')
         SIV_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM2.txt', delimiter = ' ')
 
-        SIE_mensual_CESM1 *= 1e6 # Passing from [1e6km^2] to [km^2]
-        SIE_mensual_CESM2 *= 1e6 # Passing from [1e6km^2] to [km^2]
-        
-        self.x,self.y = data_arange(SIE_mensual_plsm,SIV_mensual_plsm,SIE_mensual_CESM1,SIV_mensual_CESM1,SIE_mensual_CESM2,SIV_mensual_CESM2)
+        SIE_data = [SIE_mensual_plsm]
+        SIV_data = [SIV_mensual_plsm]
+
+        """ for ref1 in ['pos','neg']:
+            for ref2 in ['1',"2","3","4","5","6","7","8","9","10","11","12","13","14","15"]:
+                sie = np.genfromtxt("Machine_Learning/Data/CMIP/SIE_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = '  ')
+                siv = np.genfromtxt("Machine_Learning/Data/CMIP/SIV_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = ' ')
+                # Exclude the first column which stands for the year
+                sie = sie[:,1:]
+                siv = siv[:,1:]
+                SIE_data.append(sie)
+                SIV_data.append(siv) """
+        self.x,self.y = data_arange(SIE_data,SIV_data)
+        print('######################')
+        print('Creation of Neural Network')
+        print('#####################')
         print(f"Number of training year = {len(self.x)}")
-    def form(self, test_size = 0.01):
+        print('------------------------')
+    
+    def form(self, test_size = 0.0001):
         
         
         # Normalization of input datas
@@ -188,7 +174,7 @@ class NN:
             # Apply a softplus to make positive
             mu = tf.keras.activations.softplus(mu)
 
-            sigma = tf.keras.activations.sigmoid(sigma/200000)*200000
+            sigma = tf.keras.activations.sigmoid(sigma/250000)*250000
 
             # Join back together again
             out_tensor = tf.concat((mu, sigma), axis=num_dims-1)
@@ -196,21 +182,25 @@ class NN:
             return out_tensor
         
         # Contruction
-        
+        N_neuron= 60
+        N_layer = 25
+        print("---------------")
+        print("Number of hidden layer = ",N_layer)
+        print("Number of neuron per layer = ",N_neuron)
+        print('---------------')
+
         self.model_SIEFrcst = Sequential()
-        self.model_SIEFrcst.add(Dense(1000, input_dim=len(self.x[0]), activation='relu')) 
-        self.model_SIEFrcst.add(Dense(500, activation='relu'))
-        self.model_SIEFrcst.add(Dense(500, activation='relu'))
-        self.model_SIEFrcst.add(Dense(500, activation='relu'))
-        self.model_SIEFrcst.add(Dense(500, activation='relu'))
+        self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))
+        for _ in range(N_layer):
+            self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))
+        
         self.model_SIEFrcst.add(Dense(2, activation = 'relu'))
         self.model_SIEFrcst.add(Lambda(Gaussian_layer))
 
         
         self.model_SIEFrcst.compile(loss=normal_distrib_loss, optimizer= 'Adam')
         # Training
-        history = self.model_SIEFrcst.fit(self.x_train, self.y_train, epochs=epochs, batch_size=128)
-        
+        history = self.model_SIEFrcst.fit(self.x_train, self.y_train, epochs=epochs, batch_size=128)        
 
     def test(self):
         y_pred = self.model_SIEFrcst.predict(self.x_test)
@@ -230,11 +220,7 @@ class NN:
         plt.title('Comparison btwn forecasted and true September SIE, \n based on Neural Network model and data coming from PlaSim run.')
         
         plt.show()
-""" NN = NN()
-NN.form()
-NN.constr(epochs = 100,save = True)
-NN.test() """
-#R.formating_data_SIE_Frcst()
+
 
 
 
