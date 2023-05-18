@@ -29,7 +29,7 @@ class ML_frcst():
                 x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
             else:
                 x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
-            #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
+            #x = np.concatenate((jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
             # Normalizaton of input datas
@@ -40,6 +40,7 @@ class ML_frcst():
         def extract_SIV():
             SIV = np.genfromtxt(file_siv, delimiter = " ")
             SIV = SIV[:-1,1:] * 1e3 #[km^3]
+            print(SIV)
             return SIV
         
         def extract_SIE():
@@ -191,6 +192,6 @@ class ML_frcst():
         plt.show()
 
 
-ML_frcst = ML_frcst(epochs = 30, is_siv=True)
-ML_frcst.SIE_frcst(show = False)
+ML_frcst = ML_frcst(epochs = 20, is_siv=True)
+ML_frcst.SIE_frcst(show = True)
 ML_frcst.LPY()

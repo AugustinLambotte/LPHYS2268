@@ -7,7 +7,7 @@ from scipy.stats import norm
 import io
 
 class AP_frcst():
-    def __init__(self,file = "./Data/osisaf_nh_sie_monthly.nc",):
+    def __init__(self,file = "./Data/osisaf_nh_sie_monthly.nc"):
         """ Class: Anomaly Persistance Forecast
          
             Extract Sea Ice extent (sie) from 1979 to 2022.

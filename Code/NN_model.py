@@ -13,7 +13,7 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN:
-    def __init__(self,is_siv,file_siv = 'Machine_Learning/Data/SIV_mensual_90-5100_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_90-5100_plsm.txt'):
+    def __init__(self,is_siv,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
         """
             This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on SIE and SIV (Sea ice volume) data from last September to current May.
@@ -37,8 +37,8 @@ class NN:
 
                     y: An array of SIE september data, this will be used to compare with the data output.       
             """
-            month_range_SIE = [12,5] #Range of month which will be used for predictant (e.g. [9,5] -> We use data from last sept to current may)
-            month_range_SIV = [12,5]
+            month_range_SIE = [9,5] #Range of month which will be used as predictant (e.g. [9,5] -> We use data from last sept to current may)
+            month_range_SIV = [9,5]
             x = np.array([])
             for SIE,SIV in zip(SIE_data,SIV_data):
                 sept_to_dec_last_year_sie = SIE[:-1,month_range_SIE[0]-1:]
@@ -51,6 +51,8 @@ class NN:
                                 jan_to_may_current_year_sie,
                                 sept_to_dec_last_year_siv, 
                                 jan_to_may_current_year_siv),axis = 1) 
+                    """ current = np.concatenate((jan_to_may_current_year_sie,
+                                jan_to_may_current_year_siv),axis = 1)  """
                 else: 
                     current = np.concatenate((sept_to_dec_last_year_sie,
                                     jan_to_may_current_year_sie),axis = 1) 
@@ -80,10 +82,11 @@ class NN:
         SIE_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIE_CESM2.txt', delimiter = ' ')
         SIV_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM2.txt', delimiter = ' ')
 
+        SIE_mensual_CESM2 *= 1e6
         SIE_data = [SIE_mensual_plsm]
         SIV_data = [SIV_mensual_plsm]
 
-        """ for ref1 in ['pos','neg']:
+        for ref1 in ['pos','neg']:
             for ref2 in ['1',"2","3","4","5","6","7","8","9","10","11","12","13","14","15"]:
                 sie = np.genfromtxt("Machine_Learning/Data/CMIP/SIE_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = '  ')
                 siv = np.genfromtxt("Machine_Learning/Data/CMIP/SIV_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = ' ')
@@ -91,7 +94,7 @@ class NN:
                 sie = sie[:,1:]
                 siv = siv[:,1:]
                 SIE_data.append(sie)
-                SIV_data.append(siv) """
+                SIV_data.append(siv)
         self.x,self.y = data_arange(SIE_data,SIV_data)
         print('######################')
         print('Creation of Neural Network')
@@ -99,7 +102,7 @@ class NN:
         print(f"Number of training year = {len(self.x)}")
         print('------------------------')
     
-    def form(self, test_size = 0.0001):
+    def form(self, test_size = 0.000001):
         
         
         # Normalization of input datas
@@ -182,8 +185,10 @@ class NN:
             return out_tensor
         
         # Contruction
-        N_neuron= 60
-        N_layer = 25
+        N_neuron= 200
+        N_layer = 8
+
+
         print("---------------")
         print("Number of hidden layer = ",N_layer)
         print("Number of neuron per layer = ",N_neuron)
@@ -204,7 +209,6 @@ class NN:
 
     def test(self):
         y_pred = self.model_SIEFrcst.predict(self.x_test)
-        print(self.y_test[0])
         plt.hist(np.random.normal(loc = y_pred[0,0], scale = y_pred[0,1],size = 100000),bins = 50,label = f'std = {y_pred[0,1]}')
         plt.plot([int(self.y_test[0]),int(self.y_test[0])],[0,7000])
         plt.legend()
