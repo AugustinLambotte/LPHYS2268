@@ -40,7 +40,6 @@ class ML_frcst():
         def extract_SIV():
             SIV = np.genfromtxt(file_siv, delimiter = " ")
             SIV = SIV[:-1,1:] * 1e3 #[km^3]
-            print(SIV)
             return SIV
         
         def extract_SIE():
@@ -160,7 +159,7 @@ class ML_frcst():
             
             #we delete the observartions and forecast for 1986 nad 1988 because not enough data.
             observation = np.delete(observation,[6,8])
-
+            print(observation)
             observed_occurence_frequence = np.sum(observation)/(len(observation))
             self.BS = 1/(len(proba_LPY)) * np.sum(ma.masked_invalid([(proba_LPY[i] - observation[i])**2 for i in range(len(proba_LPY))])) # First equation in "Question8"
             BS_ref = 1/(len(observation)) * np.sum([(observed_occurence_frequence - observation_)**2 for observation_ in observation])
