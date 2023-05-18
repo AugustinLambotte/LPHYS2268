@@ -13,7 +13,7 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN():
-    def __init__(self,file_siv = 'Data/SIV_mensual_90-5100_plsm.txt', file_sie = 'Data/SIE_mensual_90-5100_plsm.txt'):
+    def __init__(self,file_siv = 'Data/SIV_mensual_plsm.txt', file_sie = 'Data/SIE_mensual_plsm.txt'):
         """
             This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on SIE and SIV (Sea ice volume) data from last September to current May.
@@ -27,7 +27,7 @@ class NN():
 
             Once created, these models can be test with self.test_LPY() and self.test_SIEfrcst(), respectively.
         """
-        def data_arange(SIE_plsm,SIV_plsm, SIE_cmip, SIV_cmip):
+        def data_arange(SIE_plsm,SIV_plsm):
             """
                 Return:
                     x: An array with the mensual SIE from September of the previous year to may of the current (both included)
@@ -50,36 +50,19 @@ class NN():
                                 jan_to_may_current_year_sie_plsm,
                                 sept_to_dec_last_year_siv_plsm, 
                                 jan_to_may_current_year_siv_plsm),axis = 1)
-            
-            sept_to_dec_last_year_sie_cmip = SIE_cmip[:-1,month_range_SIE[0]-1:]
-            jan_to_may_current_year_sie_cmip = SIE_cmip[1:,:month_range_SIE[1]]
 
-            sept_to_dec_last_year_siv_cmip = SIV_cmip[:-1,month_range_SIV[0]-1:]
-            jan_to_may_current_year_siv_cmip = SIV_cmip[1:,:month_range_SIV[1]]
-
-            cmip_input = np.concatenate((sept_to_dec_last_year_sie_cmip,
-                                jan_to_may_current_year_sie_cmip,
-                                sept_to_dec_last_year_siv_cmip, 
-                                jan_to_may_current_year_siv_cmip),axis = 1)
-            
-
-            x = np.concatenate((plsm_input, cmip_input),axis = 0)
+            x = plsm_input
 
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             sept_plsm = SIE_plsm[1:,8:9]
-            sept_cmip = SIE_cmip[1:,8:9]
-            y = np.concatenate((sept_plsm, sept_cmip), axis = 0)
+            y = sept_plsm
 
             return x,y
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
         SIV_mensual_plsm = np.genfromtxt(file_siv, delimiter =' ')
 
-        SIE_mensual_CMIP = np.genfromtxt('Data/CMIP/SIE_CMIP.txt', delimiter = ' ')
-        SIV_mensual_CMIP = np.genfromtxt('Data/CMIP/SIV_CMIP.txt', delimiter = ' ')
-
-        SIE_mensual_CMIP *= 1e6 # Passing from [1e6km^2] to [km^2]
     
-        self.x,self.y = data_arange(SIE_mensual_plsm,SIV_mensual_plsm,SIE_mensual_CMIP,SIV_mensual_CMIP)
+        self.x,self.y = data_arange(SIE_mensual_plsm,SIV_mensual_plsm)
 
     ######## - LPY - #######
      
@@ -131,7 +114,7 @@ class NN():
 
     ######## - SIE - #######
 
-    def formating_data_SIEfrcst(self,sie_range = 0.1 *1e6, test_size = 0.01):
+    def formating_data_SIEfrcst(self,sie_range = 0.2 *1e6, test_size = 0.01):
         """
             Turns x and y in the good format for a SIE sept extend forecast.
         """
@@ -162,11 +145,17 @@ class NN():
             Construct the neural network and train him to predict sept_SIE
         """
         # Contruction
+
+        N_neuron = 18
+        N_layer = 10
         self.model_SIEFrcst = Sequential()
-        self.model_SIEFrcst.add(Dense(18, input_dim=len(self.x[0]), activation='relu'))    
-        self.model_SIEFrcst.add(Dense(8, activation='relu'))
+        self.model_SIEFrcst.add(Dense(50, input_dim=len(self.x[0]), activation='relu'))    
+        for _ in range(N_layer):
+            self.model_SIEFrcst.add(Dense(N_neuron, activation='relu'))
+        
+        loss_function = keras.losses.CategoricalCrossentropy(from_logits=True)
         self.model_SIEFrcst.add(Dense(len(self.y_train[0]), activation='softmax'))
-        self.model_SIEFrcst.compile(loss='log_cosh', optimizer='adam', metrics = ['accuracy'])
+        self.model_SIEFrcst.compile(loss=loss_function, optimizer='adam', metrics = ['accuracy'])
         # Training
         history = self.model_SIEFrcst.fit(self.x_train, self.y_train, epochs=epochs, batch_size=128)
         if save:

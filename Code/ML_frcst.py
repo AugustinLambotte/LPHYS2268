@@ -13,7 +13,7 @@ import seaborn as sns
 
 class ML_frcst():
 
-    def __init__(self, NN_model = './Machine_Learning/Models/NN2',file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
+    def __init__(self, NN_model = './Machine_Learning/Model',file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
         
         def data_arange(SIE,SIV):
             """
@@ -25,10 +25,9 @@ class ML_frcst():
             sept_to_dec_last_year_siv = SIV[:-1,8:]
             jan_to_may_current_year_siv = SIV[1:,:5]
             x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
-            #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
-            #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
-            # Normalizaton of input datas
+            
+            # Normalization of input datas
             sc = StandardScaler()
             x = sc.fit_transform(x)
             return x
@@ -107,8 +106,8 @@ class ML_frcst():
         def predict_NN_septSIE():
             
            
-            pred_km = self.model.predict(self.x)
-            """ std_NN = np.array(tf.math.reduce_std(pred_NN, axis=1, keepdims=False, name=None))
+            pred_NN = self.model.predict(self.x)
+            std_NN = np.array(tf.math.reduce_std(pred_NN, axis=1, keepdims=False, name=None))
             # Recovering the september predicted SIE in km^2 (pred_km) from the neural state (pred_NN)
             pred_km = np.zeros(len(pred_NN))
             std_km = std_NN * self.sie_range
@@ -122,9 +121,8 @@ class ML_frcst():
                 distribution.append(current_distribution)
                 pred_km[sample_pred] = predicted_val
             
-            pred_km += 4*1e6 """
-            pred_km = [float(pred_km[i,0]) for i in range(len(pred_km))]
-            return pred_km,np.ones(len(pred_km))
+            pred_km += 4*1e6
+            return pred_km,std_km
         
         def post_process():
             """
@@ -230,6 +228,8 @@ class ML_frcst():
         axs[1].set_ylabel('SIE [1e6 km^2]')
         axs[1].title.set_text("Sea ice extent in September. ")
         plt.show()
+
 ML_frcst = ML_frcst()
 
-ML_frcst.regression_forecast()
+ML_frcst.Forecast_septSIE()
+ML_frcst.Forecast_LPY2()
