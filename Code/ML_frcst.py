@@ -14,30 +14,43 @@ import seaborn as sns
 import NN_model
 class ML_frcst():
 
-    def __init__(self,clim_time = 20,is_siv = True, epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
+    def __init__(self,interp_deg = 1,clim_time = 20,is_siv = True, epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
         
         def data_arange(SIE,SIV):
             """
                 Turns x in the good format for a SIE sept extend forecast.
             """
-            climatology = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+            climatology_sie = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+            climatology_siv = [] # Here, we stock the climatological sept siv mean of the "clim_time" last years of the considered year.
             summer_sie = SIE[clim_time:,:5]
             summer_siv = SIV[clim_time:,:5]
+
+            #winter_sie = SIE[clim_time-1:-1,:]
+            #winter_siv = SIV[clim_time-1:-1,:]
             for year in range(clim_time,len(SIE)):   # First, we interpolate the last "clim_year" sept sie to find the next one.
-                deg = 1
-                coeff = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
-                current_climatology = 0
-                for i in range(len(coeff)):
-                    current_climatology += coeff[i] * (year+1)**(deg-i) 
-                climatology.append([current_climatology])
-            climatology = np.array(climatology)
+                deg = self.interp_deg
+                coeff_sie = np.polyfit([y for y in range(clim_time)],SIE[year - clim_time:year,8],deg = deg)
+                coeff_siv = np.polyfit([y for y in range(clim_time)],SIV[year - clim_time:year,8],deg = deg)
+                #coeff_sie = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                #coeff_siv = np.polyfit(SIV[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                current_climatology_sie = 0
+                current_climatology_siv = 0
+                for i in range(len(coeff_sie)):
+                    current_climatology_sie += coeff_sie[i] * (clim_time)**(deg-i) 
+                    current_climatology_siv += coeff_siv[i] * (clim_time)**(deg-i) 
+                climatology_sie.append([current_climatology_sie])
+                climatology_siv.append([current_climatology_siv])
+                
+            climatology_sie = np.array(climatology_sie)
+            climatology_siv = np.array(climatology_siv)
 
             if self.is_siv:
-                x = np.concatenate((climatology,
+                x = np.concatenate((climatology_sie,
+                                climatology_siv,
                                 summer_sie,
                                 summer_siv),axis = 1) 
             else:
-                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
+                x = np.concatenate((climatology_sie,summer_sie,),axis = 1)
             
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
@@ -66,14 +79,15 @@ class ML_frcst():
         
         
         # Creating the neural model
-        NN = NN_model.NN(is_siv = self.is_siv, clim_time = clim_time)
+        NN = NN_model.NN(interp_deg = interp_deg, is_siv = self.is_siv, clim_time = clim_time)
         NN.form()
         NN.constr(epochs = epochs)
-        NN.test()
+        #NN.test()
         self.model = NN.model_SIEFrcst
 
 
         self.clim_time = clim_time
+        self.interp_deg = interp_deg
         self.sept_sie = self.SIE[:,8] #[km^2]
         self.SIV = extract_SIV() #[km^3]     
         self.sie_range = sie_range #[km^2]
@@ -112,7 +126,6 @@ class ML_frcst():
         if show:
             fig,axs = plt.subplots(nrows = 1, ncols = 2)
             print(np.shape(mean_postprcssed))
-            print(np.shape(mean_frcsted))
             print((self.clim_time),len(self.sept_sie))
             axs[0].scatter(mean_postprcssed,[self.sept_sie[i] for i in range((self.clim_time),len(self.sept_sie))], label =f'post-processed: Biais correction = {round(biais,3)} 1e6km^2\nAmpliccation of variability = {round(variability_ampl,3)}')
             axs[0].scatter(mean_frcsted,[self.sept_sie[i] for i in range((self.clim_time),len(self.sept_sie))], label ='Forecast')
@@ -152,7 +165,7 @@ class ML_frcst():
 
             #Proba of LPY for each year from 1980 to 2022 (both included)
             observation = []
-            for year in range(len(self.sept_sie)-1):
+            for year in range(self.clim_time-1, len(self.sept_sie)-1):
                 last_year_sie = self.sept_sie[year]
                 current_year_sie = self.sept_sie[year +1]
                 
@@ -162,13 +175,11 @@ class ML_frcst():
                 else: 
                     LPY = 0
                 observation.append(LPY)
-            mask = np.zeros(len(observation))
-            mask[6] = 1
-            mask[8] = 1
+            print(len(observation))
             
             #we delete the observartions and forecast for 1986 nad 1988 because not enough data.
-            observation = np.delete(observation,[6,8])
-            print(observation)
+            #observation = np.delete(observation,[6,8])
+            #print(observation)
             observed_occurence_frequence = np.sum(observation)/(len(observation))
             self.BS = 1/(len(proba_LPY)) * np.sum(ma.masked_invalid([(proba_LPY[i] - observation[i])**2 for i in range(len(proba_LPY))])) # First equation in "Question8"
             BS_ref = 1/(len(observation)) * np.sum([(observed_occurence_frequence - observation_)**2 for observation_ in observation])
@@ -178,28 +189,28 @@ class ML_frcst():
         proba_LPY = np.zeros(len(self.mean_frcsted))
 
         for year in range(len(self.mean_frcsted)):
-            Last_year_sept_sie = self.sept_sie[year]
+            Last_year_sept_sie = self.sept_sie[self.clim_time + year - 1]
             #Compute the probability of the LPY event
             proba_LPY[year] = norm.cdf((Last_year_sept_sie - self.mean_frcsted[year])/self.std_frcsted[year])
-        proba_LPY = np.delete(proba_LPY,[6,8])
         
         Brier_score(proba_LPY) # Creation of self.BS and self.BSS
         fig, axs = plt.subplots(nrows = 2, ncols = 1)
-        axs[0].bar([year for year in np.delete(np.arange(1980,2023),[6,8])],[proba_LPY[year] - 0.5 for year in range(len(proba_LPY))])
+        axs[0].bar([year for year in range(1979 + self.clim_time,2023)],[proba_LPY[year] - 0.5 for year in range(len(proba_LPY))])
         axs[0].title.set_text(f'Forecasted probability that the sie will be less than previous year.\n BS = {self.BS}, BSS = {self.BSS}')
         axs[0].set_ylabel('P(Less SIE) - P(More SIE)')
-        axs[0].scatter([year for year in np.delete(np.arange(1980,2023),[6,8])],[self.observation[year] -1/2 for year in range(len(self.observation))])
+        axs[0].scatter([year for year in range(self.clim_time + 1979,2023)],[self.observation[year] -1/2 for year in range(len(self.observation))])
         axs[0].grid()
 
-        axs[1].plot([year for year in range(1979,2023)], [self.sept_sie[year-1979] for year in range(1979,2023)], label = 'Observed')
-        axs[1].errorbar([year for year in range(1980,2023)], [self.mean_frcsted[year] for year in range(len(self.mean_frcsted))], [2*self.std_frcsted[year] for year in range(len(self.mean_frcsted))],linestyle='dashed', marker='^', label = 'NN Forcasted post processed')
+        axs[1].plot([year for year in range(1979 + self.clim_time,2023)], [self.sept_sie[year-1979] for year in range(1979 + self.clim_time,2023)], label = 'Observed')      
+        axs[1].errorbar([year for year in range((1979+self.clim_time),2023)], [self.mean_frcsted[year] for year in range(len(self.mean_frcsted))], [2*self.std_frcsted[year] for year in range(len(self.mean_frcsted))],linestyle='dashed', marker='^', label = 'NN Forcasted post processed')
         axs[1].grid()
         axs[1].legend()
         axs[1].set_ylabel('SIE [1e6 km^2]')
-        axs[1].title.set_text("Sea ice extent in September. ")
+
+        
         plt.show()
 
 
-ML_frcst = ML_frcst(epochs = 10, is_siv=True)
+ML_frcst = ML_frcst(clim_time = 10, epochs = 150, is_siv=True)
 ML_frcst.SIE_frcst(show = True)
 ML_frcst.LPY()

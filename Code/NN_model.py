@@ -13,7 +13,7 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN:
-    def __init__(self,is_siv,clim_time,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
+    def __init__(self,is_siv,clim_time,interp_deg,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
         """
             This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on SIE and SIV (Sea ice volume) data from last September to current May.
@@ -43,31 +43,51 @@ class NN:
             for SIE,SIV in zip(SIE_data,SIV_data):
                 
                 clim_time = self.clim_time
-                climatology = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+                climatology_siv = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+                climatology_sie = [] # Here, we stock the climatological sept siv mean of the "clim_time" last years of the considered year.
                 summer_sie = SIE[clim_time:,:5]
                 summer_siv = SIV[clim_time:,:5]
+
+                #winter_sie = SIE[clim_time-1:-1,:]
+                #winter_siv = SIV[clim_time-1:-1,:]
                 print("----- Computing climatology --------")
                 for year in range(clim_time,len(SIE)):
                     # First, we interpolate the last "clim_year" sept sie to find the next one.
-                    deg = 1
-                    coeff = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
-                    current_climatology = 0
-                    for i in range(len(coeff)):
-                        current_climatology += coeff[i] * (year+1)**(deg-i) 
-                    climatology.append([current_climatology])
+                    deg = interp_deg
+                    coeff_sie = np.polyfit([y for y in range(clim_time)],SIE[year - clim_time:year,8],deg = deg)
+                    coeff_siv = np.polyfit([y for y in range(clim_time)],SIV[year - clim_time:year,8],deg = deg)
+                    #coeff_sie = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                    #coeff_siv = np.polyfit(SIV[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                    
+                    current_climatology_sie = 0
+                    current_climatology_siv = 0
+                    for i in range(len(coeff_sie)):
+                        current_climatology_sie += coeff_sie[i] * (clim_time)**(deg-i) 
+                        
+                        current_climatology_siv += coeff_siv[i] * (clim_time)**(deg-i) 
+                        
+                    climatology_sie.append([current_climatology_sie])
+                    climatology_siv.append([current_climatology_siv])
+                    """print(SIE[year - clim_time:year,8])
+                    plt.plot([y for y in range(clim_time+1)],np.append(SIE[year - clim_time:year,8],current_climatology_sie))
+                    plt.plot([y for y in range(clim_time)],SIE[year - clim_time:year,8])
+                    plt.plot([y for y in range(clim_time+1)],[coeff_sie[0] * y**4 + coeff_sie[1] * y**3 + coeff_sie[2] *y**2 + coeff_sie[3] * y + coeff_sie[4] for y in range(clim_time+1)])
+                    plt.grid()
+                    plt.show() """
+
+
+
                 print('---- done -----')
-                climatology = np.array(climatology)
-                print(np.shape(climatology))
-                print(np.shape(summer_sie))
-                print(np.shape(summer_siv))
+                climatology_sie = np.array(climatology_sie)
+                climatology_siv = np.array(climatology_siv)
                 if self.is_siv:
-                    current = np.concatenate((climatology,
+                    current = np.concatenate((climatology_sie,
+                                climatology_siv,
                                 summer_sie,
-                                summer_siv),axis = 1) 
+                                summer_siv,),axis = 1) 
                 else: 
-                    #current = np.concatenate((sept_to_dec_last_year_sie,
-                    #                jan_to_may_current_year_sie),axis = 1) 
-                    current = 0
+                    current = np.concatenate((climatology_sie,
+                                summer_sie), axis = 1)
 
                 if len(x) == 0:
                     x = current
@@ -102,9 +122,9 @@ class NN:
         
         SIE_data = [SIE_mensual_plsm]
         SIV_data = [SIV_mensual_plsm]
-
         self.x,self.y = data_arange(SIE_data,SIV_data)
         
+        #select_data()
         
         print('######################')
         print('Creation of Neural Network')
@@ -115,10 +135,6 @@ class NN:
     
     def form(self, test_size = 0.1):
         
-        
-        # Normalization of input datas
-        sc = StandardScaler()
-        #x = sc.fit_transform(self.x)
         x = self.x
         # Splitting our data set in training and testing parts
         self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,self.y,test_size = test_size)
@@ -196,9 +212,9 @@ class NN:
 
             return out_tensor
         
-        # Contruction
-        N_neuron= 50
-        N_layer = 17
+        # Contruction: 30 neurons and 5 layers seems optimal
+        N_neuron= 25
+        N_layer = 5
 
 
         print("---------------")
