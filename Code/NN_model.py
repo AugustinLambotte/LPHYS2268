@@ -38,25 +38,26 @@ class NN:
                     y: An array of SIE september data, this will be used to compare with the data output.       
             """
             month_range_SIE = [9,5] #Range of month which will be used as predictant (e.g. [9,5] -> We use data from last sept to current may)
-            month_range_SIV = [9,5]
+            month_range_SIV = [9,2]
             x = np.array([])
             for SIE,SIV in zip(SIE_data,SIV_data):
-                sept_to_dec_last_year_sie = SIE[:-1,month_range_SIE[0]-1:]
+                #sept_to_dec_last_year_sie = SIE[:-1,month_range_SIE[0]-1:]
                 jan_to_may_current_year_sie = SIE[1:,:month_range_SIE[1]]
 
                 sept_to_dec_last_year_siv = SIV[:-1,month_range_SIV[0]-1:]
                 jan_to_may_current_year_siv = SIV[1:,:month_range_SIV[1]]
                 if self.is_siv:
-                    current = np.concatenate((sept_to_dec_last_year_sie,
+                    """ current = np.concatenate((sept_to_dec_last_year_sie,
                                 jan_to_may_current_year_sie,
                                 sept_to_dec_last_year_siv, 
-                                jan_to_may_current_year_siv),axis = 1) 
-                    """ current = np.concatenate((jan_to_may_current_year_sie,
                                 jan_to_may_current_year_siv),axis = 1)  """
+                    current = np.concatenate((jan_to_may_current_year_sie,sept_to_dec_last_year_siv,
+                                jan_to_may_current_year_siv),axis = 1) 
                 else: 
-                    current = np.concatenate((sept_to_dec_last_year_sie,
-                                    jan_to_may_current_year_sie),axis = 1) 
-                
+                    #current = np.concatenate((sept_to_dec_last_year_sie,
+                    #                jan_to_may_current_year_sie),axis = 1) 
+                    current = jan_to_may_current_year_sie
+
                 if len(x) == 0:
                     x = current
                 else:
@@ -70,6 +71,15 @@ class NN:
                 else:
                     y = np.concatenate((y,current))
             return x,y
+
+        def select_data():
+            index_bad_data = []
+            for year in range(len(self.x)):
+                if self.y[year][0] < 4*1e6:
+                    index_bad_data.append(year)
+                
+            self.x = np.delete(self.x,index_bad_data, axis = 0)
+            self.y = np.delete(self.y,index_bad_data, axis = 0)
 
         self.is_siv = is_siv
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
@@ -96,22 +106,29 @@ class NN:
                 SIE_data.append(sie)
                 SIV_data.append(siv)
         self.x,self.y = data_arange(SIE_data,SIV_data)
+        print(np.shape(self.x),np.shape(self.y))
+        #select_data()
+        print(np.shape(self.x),np.shape(self.y))
+        
+        
         print('######################')
         print('Creation of Neural Network')
         print('#####################')
         print(f"Number of training year = {len(self.x)}")
+        print(f'input size = {len(self.x[0])}')
         print('------------------------')
     
-    def form(self, test_size = 0.000001):
+    def form(self, test_size = 0.1):
         
         
         # Normalization of input datas
         sc = StandardScaler()
-        x = sc.fit_transform(self.x)
+        #x = sc.fit_transform(self.x)
+        x = self.x
         # Splitting our data set in training and testing parts
         self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,self.y,test_size = test_size)
 
-    def constr(self, epochs = 60,save = False):
+    def constr(self, epochs = 60):
         """
             Construct the neural network and train him to predict sept_SIE
         """
@@ -177,7 +194,7 @@ class NN:
             # Apply a softplus to make positive
             mu = tf.keras.activations.softplus(mu)
 
-            sigma = tf.keras.activations.sigmoid(sigma/250000)*250000
+            sigma = tf.keras.activations.sigmoid(sigma/200000)*200000
 
             # Join back together again
             out_tensor = tf.concat((mu, sigma), axis=num_dims-1)
@@ -185,16 +202,18 @@ class NN:
             return out_tensor
         
         # Contruction
-        N_neuron= 200
-        N_layer = 8
+        N_neuron= 50
+        N_layer = 20
 
 
         print("---------------")
         print("Number of hidden layer = ",N_layer)
         print("Number of neuron per layer = ",N_neuron)
         print('---------------')
+        
 
         self.model_SIEFrcst = Sequential()
+        self.model_SIEFrcst.add(tf.keras.layers.BatchNormalization())
         self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))
         for _ in range(N_layer):
             self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))

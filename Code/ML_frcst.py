@@ -24,17 +24,20 @@ class ML_frcst():
             jan_to_may_current_year_sie = SIE[1:,:5]
 
             sept_to_dec_last_year_siv = SIV[:-1,8:]
-            jan_to_may_current_year_siv = SIV[1:,:5]
-            if self.is_siv:
-                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
-            else:
-                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
+            jan_to_may_current_year_siv = SIV[1:,:2]
+            #if self.is_siv:
+            #    x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
+            #else:
+            #    x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             #x = np.concatenate((jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
+            x = np.concatenate((jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
+            
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
             # Normalizaton of input datas
-            sc = StandardScaler()
-            x = sc.fit_transform(x)
+            #sc = StandardScaler()
+            #x = sc.fit_transform(x)
+
             return x
         
         def extract_SIV():
@@ -59,6 +62,7 @@ class ML_frcst():
         NN = NN_model.NN(is_siv = self.is_siv)
         NN.form()
         NN.constr(epochs = epochs)
+        NN.test()
         self.model = NN.model_SIEFrcst
 
         
@@ -191,6 +195,6 @@ class ML_frcst():
         plt.show()
 
 
-ML_frcst = ML_frcst(epochs = 20, is_siv=True)
+ML_frcst = ML_frcst(epochs = 50, is_siv=True)
 ML_frcst.SIE_frcst(show = True)
 ML_frcst.LPY()
