@@ -1,13 +1,9 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
-import keras
-from keras.models import Sequential, Model
+from keras.models import Sequential
 from keras.layers import Dense, Lambda
-from sklearn.metrics import accuracy_score
 import xarray as xr
 import tensorflow_probability as tfp
 
@@ -17,6 +13,12 @@ class NN:
         """
             This class "NN" create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on previous SIE and SIV (Sea ice volume) data.
+            
+            Parameters:
+            clim_time | int: is the range of time over which we want to compute the trend line.
+            interp_deg | int: is the degree of interpolation if the trend line. Should be keep to 1 in practice.
+            is_siv | bool: True if we want to use the SIV data False if not
+
         """
         def data_arange(SIE_data,SIV_data, test_size = 0.005):
             """
@@ -31,21 +33,16 @@ class NN:
             for SIE,SIV in zip(SIE_data,SIV_data):
                 
                 clim_time = self.clim_time
-                climatology_siv = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
-                climatology_sie = [] # Here, we stock the climatological sept siv mean of the "clim_time" last years of the considered year.
-                summer_sie = SIE[clim_time:,:5]
-                summer_siv = SIV[clim_time:,:5]
+                climatology_siv = [] # Climatological trend sept sie mean of the "clim_time" last years of the considered year.
+                climatology_sie = [] # Climatological trend sept siv mean of the "clim_time" last years of the considered year.
+                
+                summer_sie = SIE[clim_time:,:5] # SIE of the last 5 month (jan -> may)
+                summer_siv = SIV[clim_time:,:5] # SIV of the last 5 month (jan -> may)
 
-                #winter_sie = SIE[clim_time-1:-1,:]
-                #winter_siv = SIV[clim_time-1:-1,:]
-                print("----- Computing climatology --------")
                 for year in range(clim_time,len(SIE)):
-                    # First, we interpolate the last "clim_year" sept sie to find the next one.
                     deg = interp_deg
                     coeff_sie = np.polyfit([y for y in range(clim_time)],SIE[year - clim_time:year,8],deg = deg)
                     coeff_siv = np.polyfit([y for y in range(clim_time)],SIV[year - clim_time:year,8],deg = deg)
-                    #coeff_sie = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
-                    #coeff_siv = np.polyfit(SIV[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
                     
                     current_climatology_sie = 0
                     current_climatology_siv = 0
@@ -56,16 +53,7 @@ class NN:
                         
                     climatology_sie.append([current_climatology_sie])
                     climatology_siv.append([current_climatology_siv])
-                    """print(SIE[year - clim_time:year,8])
-                    plt.plot([y for y in range(clim_time+1)],np.append(SIE[year - clim_time:year,8],current_climatology_sie))
-                    plt.plot([y for y in range(clim_time)],SIE[year - clim_time:year,8])
-                    plt.plot([y for y in range(clim_time+1)],[coeff_sie[0] * y**4 + coeff_sie[1] * y**3 + coeff_sie[2] *y**2 + coeff_sie[3] * y + coeff_sie[4] for y in range(clim_time+1)])
-                    plt.grid()
-                    plt.show() """
 
-
-
-                print('---- done -----')
                 climatology_sie = np.array(climatology_sie)
                 climatology_siv = np.array(climatology_siv)
                 if self.is_siv:
@@ -118,7 +106,6 @@ class NN:
         print(f'input size = {len(self.x_train[0])}')
         print('------------------------')
     
-
     def constr(self, epochs = 60):
         """
             Construct the neural network and train him to predict sept_SIE
@@ -179,7 +166,9 @@ class NN:
 
             return out_tensor
         
-        # Contruction: 
+        #------------
+        # Contruction
+        #------------
         N_neuron= 30
         N_layer = 10
 
@@ -192,11 +181,11 @@ class NN:
         # Initialization of the model
         self.model_SIEFrcst = Sequential()
 
-        # Normalization layer: use to normalize the input.
-        self.model_SIEFrcst.add(tf.keras.layers.BatchNormalization())
 
         # Layers
+        self.model_SIEFrcst.add(tf.keras.layers.BatchNormalization())
         self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x_train[0]), activation='relu'))
+
         for _ in range(N_layer):
             self.model_SIEFrcst.add(Dense(N_neuron, activation='relu'))
         
@@ -205,7 +194,10 @@ class NN:
 
         
         self.model_SIEFrcst.compile(loss=normal_distrib_loss, optimizer= 'Adam')
+        
+        #----------
         # Training
+        #----------
         history = self.model_SIEFrcst.fit(self.x_train, self.y_train, epochs=epochs, batch_size=128)        
 
     def test(self):
@@ -214,10 +206,11 @@ class NN:
         """
         y_pred = self.model_SIEFrcst.predict(self.x_test)
         
+        #------
         # Plot
+        #------
         plt.scatter(y_pred[:,0],self.y_test)
         plt.errorbar(y_pred[:,0],self.y_test,xerr=y_pred[:,1], linestyle="None")
-
         plt.xlabel('predicted SIE [1e7 km^2]')
         plt.ylabel('True SIE [1e7 km^2]')
         plt.grid()
