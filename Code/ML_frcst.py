@@ -14,23 +14,30 @@ import seaborn as sns
 import NN_model
 class ML_frcst():
 
-    def __init__(self,is_siv = True, epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
+    def __init__(self,clim_time = 20,is_siv = True, epochs = 50, file_sie = "./Data/osisaf_nh_sie_monthly.nc", file_siv = "Data/PIOMAS.2sst.monthly.Current.v2.1.txt",sie_range = 0.1*1e6):
         
         def data_arange(SIE,SIV):
             """
                 Turns x in the good format for a SIE sept extend forecast.
             """
-            sept_to_dec_last_year_sie = SIE[:-1,8:]
-            jan_to_may_current_year_sie = SIE[1:,:5]
+            climatology = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+            summer_sie = SIE[clim_time:,:5]
+            summer_siv = SIV[clim_time:,:5]
+            for year in range(clim_time,len(SIE)):   # First, we interpolate the last "clim_year" sept sie to find the next one.
+                deg = 1
+                coeff = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                current_climatology = 0
+                for i in range(len(coeff)):
+                    current_climatology += coeff[i] * (year+1)**(deg-i) 
+                climatology.append([current_climatology])
+            climatology = np.array(climatology)
 
-            sept_to_dec_last_year_siv = SIV[:-1,8:]
-            jan_to_may_current_year_siv = SIV[1:,:2]
-            #if self.is_siv:
-            #    x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
-            #else:
-            #    x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
-            #x = np.concatenate((jan_to_may_current_year_sie,jan_to_may_current_year_siv),axis = 1)
-            x = np.concatenate((jan_to_may_current_year_sie,sept_to_dec_last_year_siv,jan_to_may_current_year_siv),axis = 1)
+            if self.is_siv:
+                x = np.concatenate((climatology,
+                                summer_sie,
+                                summer_siv),axis = 1) 
+            else:
+                x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
             #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
             
@@ -59,13 +66,14 @@ class ML_frcst():
         
         
         # Creating the neural model
-        NN = NN_model.NN(is_siv = self.is_siv)
+        NN = NN_model.NN(is_siv = self.is_siv, clim_time = clim_time)
         NN.form()
         NN.constr(epochs = epochs)
         NN.test()
         self.model = NN.model_SIEFrcst
 
-        
+
+        self.clim_time = clim_time
         self.sept_sie = self.SIE[:,8] #[km^2]
         self.SIV = extract_SIV() #[km^3]     
         self.sie_range = sie_range #[km^2]
@@ -78,13 +86,14 @@ class ML_frcst():
             """
 
             # Mean Biais
-            true_mean = np.mean([self.sept_sie[year-1980] for year in range(1980,2022)])
+            true_mean = np.mean([self.sept_sie[year-1980] for year in range((1980+self.clim_time),2023)])
+            
             Forecasted_mean = np.mean(ma.masked_invalid(mean_frcsted))
             biais =  Forecasted_mean - true_mean
             unbiaised_frcst = mean_frcsted - biais
             
             # Variability Biais
-            true_std = np.std([self.sept_sie[year-1980] for year in range(1980,2022)])
+            true_std = np.std([self.sept_sie[year-1980] for year in range((1980+self.clim_time),2022)])
             frcst_std = np.std(ma.masked_invalid(mean_frcsted))
 
             variability_ampl = true_std/frcst_std # As defined slide 11 Postprocessed
@@ -94,12 +103,6 @@ class ML_frcst():
         
         # Forecasting of mean and std
         forecast = self.model.predict(self.x)
-        mask = np.zeros((len(forecast),2))
-        mask[6,0] = 1
-        mask[6,1] = 1
-        mask[8,0] = 1
-        mask[8,1] = 1
-        forecast = ma.array(forecast, mask = mask)
         mean_frcsted = forecast[:,0]
         std_frcsted = forecast[:,1]
 
@@ -108,18 +111,20 @@ class ML_frcst():
 
         if show:
             fig,axs = plt.subplots(nrows = 1, ncols = 2)
-            
-            axs[0].scatter(mean_postprcssed,[self.sept_sie[i] for i in range(1,len(self.sept_sie))], label =f'post-processed: Biais correction = {round(biais,3)} 1e6km^2\nAmpliccation of variability = {round(variability_ampl,3)}')
-            axs[0].scatter(mean_frcsted,[self.sept_sie[year-1980] for year in range(1980,2023)], label ='Forecast')
+            print(np.shape(mean_postprcssed))
+            print(np.shape(mean_frcsted))
+            print((self.clim_time),len(self.sept_sie))
+            axs[0].scatter(mean_postprcssed,[self.sept_sie[i] for i in range((self.clim_time),len(self.sept_sie))], label =f'post-processed: Biais correction = {round(biais,3)} 1e6km^2\nAmpliccation of variability = {round(variability_ampl,3)}')
+            axs[0].scatter(mean_frcsted,[self.sept_sie[i] for i in range((self.clim_time),len(self.sept_sie))], label ='Forecast')
             
             # Display the diagonal
             #axs[0].plot([0,1e8],[0,1e8],color = 'grey', linestyle='dashed')
 
             # Display the trend line of post-processed data.
-            sns.regplot(x=mean_postprcssed, y=[self.sept_sie[i] for i in range(1,len(self.sept_sie))], ci=False, line_kws={'color':'blue', 'linestyle':'dashed'}, ax=axs[0])
+            sns.regplot(x=mean_postprcssed, y=[self.sept_sie[i] for i in range(self.clim_time,len(self.sept_sie))], ci=False, line_kws={'color':'blue', 'linestyle':'dashed'}, ax=axs[0])
 
             # Display the trend line of unpost-processed data.
-            sns.regplot(x=mean_frcsted, y=[self.sept_sie[i] for i in range(1,len(self.sept_sie))], ci=False, line_kws={'color':'orange','linestyle':'dashed'}, ax=axs[0])
+            sns.regplot(x=mean_frcsted, y=[self.sept_sie[i] for i in range(self.clim_time,len(self.sept_sie))], ci=False, line_kws={'color':'orange','linestyle':'dashed'}, ax=axs[0])
 
             # Scatter plots
             axs[0].grid()
@@ -130,8 +135,8 @@ class ML_frcst():
 
             # Time series
             axs[1].plot([year for year in range(1979,2023)], [self.sept_sie[year-1979] for year in range(1979,2023)], label = 'Observed')      
-            axs[1].errorbar([year for year in range(1980,2023)], [mean_postprcssed[year] for year in range(len(mean_postprcssed))], [2*std_frcsted[year] for year in range(len(mean_postprcssed))],linestyle='dashed', marker='^', label = f'NN Forcasted post processed, mean std = {np.mean(ma.masked_invalid(std_frcsted))}')
-            axs[1].plot([year for year in range(1980,2023)], [mean_frcsted[year] for year in range(len(mean_postprcssed))], label = 'NN Forcasted',color = 'grey', linestyle='dashed')
+            axs[1].errorbar([year for year in range((1979+self.clim_time),2023)], [mean_postprcssed[year] for year in range(len(mean_postprcssed))], [2*std_frcsted[year] for year in range(len(mean_postprcssed))],linestyle='dashed', marker='^', label = f'NN Forcasted post processed, mean std = {np.mean(ma.masked_invalid(std_frcsted))}')
+            axs[1].plot([year for year in range((1979+self.clim_time),2023)], [mean_frcsted[year] for year in range(len(mean_postprcssed))], label = 'NN Forcasted',color = 'grey', linestyle='dashed')
             axs[1].grid()
             axs[1].legend()
             axs[1].set_ylabel('SIE [1e6 km^2]')
@@ -195,6 +200,6 @@ class ML_frcst():
         plt.show()
 
 
-ML_frcst = ML_frcst(epochs = 50, is_siv=True)
+ML_frcst = ML_frcst(epochs = 10, is_siv=True)
 ML_frcst.SIE_frcst(show = True)
 ML_frcst.LPY()

@@ -13,7 +13,7 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN:
-    def __init__(self,is_siv,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
+    def __init__(self,is_siv,clim_time,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
         """
             This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on SIE and SIV (Sea ice volume) data from last September to current May.
@@ -41,22 +41,33 @@ class NN:
             month_range_SIV = [9,2]
             x = np.array([])
             for SIE,SIV in zip(SIE_data,SIV_data):
-                #sept_to_dec_last_year_sie = SIE[:-1,month_range_SIE[0]-1:]
-                jan_to_may_current_year_sie = SIE[1:,:month_range_SIE[1]]
-
-                sept_to_dec_last_year_siv = SIV[:-1,month_range_SIV[0]-1:]
-                jan_to_may_current_year_siv = SIV[1:,:month_range_SIV[1]]
+                
+                clim_time = self.clim_time
+                climatology = [] # Here, we stock the climatological sept sie mean of the "clim_time" last years of the considered year.
+                summer_sie = SIE[clim_time:,:5]
+                summer_siv = SIV[clim_time:,:5]
+                print("----- Computing climatology --------")
+                for year in range(clim_time,len(SIE)):
+                    # First, we interpolate the last "clim_year" sept sie to find the next one.
+                    deg = 1
+                    coeff = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
+                    current_climatology = 0
+                    for i in range(len(coeff)):
+                        current_climatology += coeff[i] * (year+1)**(deg-i) 
+                    climatology.append([current_climatology])
+                print('---- done -----')
+                climatology = np.array(climatology)
+                print(np.shape(climatology))
+                print(np.shape(summer_sie))
+                print(np.shape(summer_siv))
                 if self.is_siv:
-                    """ current = np.concatenate((sept_to_dec_last_year_sie,
-                                jan_to_may_current_year_sie,
-                                sept_to_dec_last_year_siv, 
-                                jan_to_may_current_year_siv),axis = 1)  """
-                    current = np.concatenate((jan_to_may_current_year_sie,sept_to_dec_last_year_siv,
-                                jan_to_may_current_year_siv),axis = 1) 
+                    current = np.concatenate((climatology,
+                                summer_sie,
+                                summer_siv),axis = 1) 
                 else: 
                     #current = np.concatenate((sept_to_dec_last_year_sie,
                     #                jan_to_may_current_year_sie),axis = 1) 
-                    current = jan_to_may_current_year_sie
+                    current = 0
 
                 if len(x) == 0:
                     x = current
@@ -65,7 +76,7 @@ class NN:
 
             y = np.array([]) 
             for SIE in SIE_data:
-                current = SIE[1:,8:9]
+                current = SIE[clim_time:,8:9]
                 if len(y) == 0:
                     y = current
                 else:
@@ -80,35 +91,19 @@ class NN:
                 
             self.x = np.delete(self.x,index_bad_data, axis = 0)
             self.y = np.delete(self.y,index_bad_data, axis = 0)
-
+        self.clim_time = clim_time
         self.is_siv = is_siv
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
         SIV_mensual_plsm = np.genfromtxt(file_siv, delimiter =' ')
 
-        #SIE_mensual_plsm = SIE_mensual_plsm[:,1000:3000]
-        #SIV_mensual_plsm = SIV_mensual_plsm[:,1000:3000]
-
-        
         SIE_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIE_CESM2.txt', delimiter = ' ')
         SIV_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM2.txt', delimiter = ' ')
-
         SIE_mensual_CESM2 *= 1e6
+        
         SIE_data = [SIE_mensual_plsm]
         SIV_data = [SIV_mensual_plsm]
 
-        for ref1 in ['pos','neg']:
-            for ref2 in ['1',"2","3","4","5","6","7","8","9","10","11","12","13","14","15"]:
-                sie = np.genfromtxt("Machine_Learning/Data/CMIP/SIE_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = '  ')
-                siv = np.genfromtxt("Machine_Learning/Data/CMIP/SIV_"+ref1+"_r"+ref2+"i1p1f2_gn_195001-195912.txt", delimiter = ' ')
-                # Exclude the first column which stands for the year
-                sie = sie[:,1:]
-                siv = siv[:,1:]
-                SIE_data.append(sie)
-                SIV_data.append(siv)
         self.x,self.y = data_arange(SIE_data,SIV_data)
-        print(np.shape(self.x),np.shape(self.y))
-        #select_data()
-        print(np.shape(self.x),np.shape(self.y))
         
         
         print('######################')
@@ -203,7 +198,7 @@ class NN:
         
         # Contruction
         N_neuron= 50
-        N_layer = 20
+        N_layer = 17
 
 
         print("---------------")
@@ -228,10 +223,10 @@ class NN:
 
     def test(self):
         y_pred = self.model_SIEFrcst.predict(self.x_test)
-        plt.hist(np.random.normal(loc = y_pred[0,0], scale = y_pred[0,1],size = 100000),bins = 50,label = f'std = {y_pred[0,1]}')
-        plt.plot([int(self.y_test[0]),int(self.y_test[0])],[0,7000])
-        plt.legend()
-        plt.show()
+        #plt.hist(np.random.normal(loc = y_pred[0,0], scale = y_pred[0,1],size = 100000),bins = 50,label = f'std = {y_pred[0,1]}')
+        #plt.plot([int(self.y_test[0]),int(self.y_test[0])],[0,7000])
+        #plt.legend()
+        #plt.show()
         # Plot
         
         plt.scatter(y_pred[:,0],self.y_test)
