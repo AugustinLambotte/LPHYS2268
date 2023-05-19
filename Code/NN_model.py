@@ -15,30 +15,18 @@ import tensorflow_probability as tfp
 class NN:
     def __init__(self,is_siv,clim_time,interp_deg,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
         """
-            This class "NN" is build to create a Neural Network model to predict futur Sea Ice Extend (SIE) 
-            based on SIE and SIV (Sea ice volume) data from last September to current May.
-
-            Two different constructions are possible:
-                - The first predict the possiblity of a LPY event (i.e. next september SIE will be less than the last one).
-                  to do this, first formating the data with self.formating_data_LPY() then construct the NN with 
-                  self.construct_LPY(save = False) to record the model.
-                - The second predict futur septembre SIE. First formating the data with self.formating_data_SIEfrcst() and construct
-                  and save with construct_SIEfrcst(save = True). 
-
-            Once created, these models can be test with self.test_LPY() and self.test_SIEfrcst(), respectively.
+            This class "NN" create a Neural Network model to predict futur Sea Ice Extend (SIE) 
+            based on previous SIE and SIV (Sea ice volume) data.
         """
-        def data_arange(SIE_data,SIV_data):
+        def data_arange(SIE_data,SIV_data, test_size = 0.005):
             """
                 Return:
-                    x: An array with the mensual SIE from September of the previous year to may of the current (both included)
-                       and siv from last septmber to current may concatenated 
-                       e.g. x[year] = [sie_sept, sie_oct,...,sie_may,siv_sept,siv_oct,...siv_may].
-                       This will be the input data.
-
-                    y: An array of SIE september data, this will be used to compare with the data output.       
+                    Format the data in to be used by the network.
+                    -self.x is the inputs data. self.x_train for the train part and self.x_test for the test part
+                        It is made of a climatological trend of septembre SIE and SIV and SIE and SIV for the month of january until may.
+                    -slef.y is the output data, the sept_sie   
             """
-            month_range_SIE = [9,5] #Range of month which will be used as predictant (e.g. [9,5] -> We use data from last sept to current may)
-            month_range_SIV = [9,2]
+            
             x = np.array([])
             for SIE,SIV in zip(SIE_data,SIV_data):
                 
@@ -101,18 +89,16 @@ class NN:
                     y = current
                 else:
                     y = np.concatenate((y,current))
-            return x,y
+            self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,y,test_size = test_size)
 
-        def select_data():
-            index_bad_data = []
-            for year in range(len(self.x)):
-                if self.y[year][0] < 4*1e6:
-                    index_bad_data.append(year)
-                
-            self.x = np.delete(self.x,index_bad_data, axis = 0)
-            self.y = np.delete(self.y,index_bad_data, axis = 0)
+        
         self.clim_time = clim_time
         self.is_siv = is_siv
+
+        #---------
+        # Extraction of training datas
+        #---------
+
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
         SIV_mensual_plsm = np.genfromtxt(file_siv, delimiter =' ')
 
@@ -120,24 +106,18 @@ class NN:
         SIV_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM2.txt', delimiter = ' ')
         SIE_mensual_CESM2 *= 1e6
         
-        SIE_data = [SIE_mensual_plsm]
-        SIV_data = [SIV_mensual_plsm]
-        self.x,self.y = data_arange(SIE_data,SIV_data)
-        
-        #select_data()
-        
+        SIE_data = [SIE_mensual_plsm,SIE_mensual_CESM2]
+        SIV_data = [SIV_mensual_plsm,SIV_mensual_CESM2]
+
+        data_arange(SIE_data,SIV_data)
+
         print('######################')
         print('Creation of Neural Network')
         print('#####################')
-        print(f"Number of training year = {len(self.x)}")
-        print(f'input size = {len(self.x[0])}')
+        print(f"Number of training year = {len(self.x_train)}")
+        print(f'input size = {len(self.x_train[0])}')
         print('------------------------')
     
-    def form(self, test_size = 0.1):
-        
-        x = self.x
-        # Splitting our data set in training and testing parts
-        self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,self.y,test_size = test_size)
 
     def constr(self, epochs = 60):
         """
@@ -147,18 +127,6 @@ class NN:
             """
             Normal distribution loss function.
             Assumes tensorflow backend.
-            
-            Parameters
-            ----------
-            y_true : tf.Tensor
-                Ground truth values of predicted variable.
-            y_pred : tf.Tensor
-                n and p values of predicted distribution.
-                
-            Returns
-            -------
-            nll : tf.Tensor
-                Negative log likelihood.
             """
             import tensorflow as tf
             # Separate the parameters
@@ -178,9 +146,8 @@ class NN:
         def Gaussian_layer(x):
             """
             Lambda function for generating gaussian parameters
-            n and p from a Dense(2) output.
+            mu and sigma from a Dense(2) output.
             Assumes tensorflow 2 backend.
-            
             
             Parameters
             ----------
@@ -212,9 +179,9 @@ class NN:
 
             return out_tensor
         
-        # Contruction: 30 neurons and 5 layers seems optimal
-        N_neuron= 25
-        N_layer = 5
+        # Contruction: 
+        N_neuron= 30
+        N_layer = 10
 
 
         print("---------------")
@@ -222,12 +189,16 @@ class NN:
         print("Number of neuron per layer = ",N_neuron)
         print('---------------')
         
-
+        # Initialization of the model
         self.model_SIEFrcst = Sequential()
+
+        # Normalization layer: use to normalize the input.
         self.model_SIEFrcst.add(tf.keras.layers.BatchNormalization())
-        self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))
+
+        # Layers
+        self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x_train[0]), activation='relu'))
         for _ in range(N_layer):
-            self.model_SIEFrcst.add(Dense(N_neuron, input_dim=len(self.x[0]), activation='relu'))
+            self.model_SIEFrcst.add(Dense(N_neuron, activation='relu'))
         
         self.model_SIEFrcst.add(Dense(2, activation = 'relu'))
         self.model_SIEFrcst.add(Lambda(Gaussian_layer))
@@ -238,13 +209,12 @@ class NN:
         history = self.model_SIEFrcst.fit(self.x_train, self.y_train, epochs=epochs, batch_size=128)        
 
     def test(self):
+        """
+            Test the prediction skills of the neural network on self.x_test: data woh hasn't been used for training.
+        """
         y_pred = self.model_SIEFrcst.predict(self.x_test)
-        #plt.hist(np.random.normal(loc = y_pred[0,0], scale = y_pred[0,1],size = 100000),bins = 50,label = f'std = {y_pred[0,1]}')
-        #plt.plot([int(self.y_test[0]),int(self.y_test[0])],[0,7000])
-        #plt.legend()
-        #plt.show()
-        # Plot
         
+        # Plot
         plt.scatter(y_pred[:,0],self.y_test)
         plt.errorbar(y_pred[:,0],self.y_test,xerr=y_pred[:,1], linestyle="None")
 

@@ -25,14 +25,11 @@ class ML_frcst():
             summer_sie = SIE[clim_time:,:5]
             summer_siv = SIV[clim_time:,:5]
 
-            #winter_sie = SIE[clim_time-1:-1,:]
-            #winter_siv = SIV[clim_time-1:-1,:]
-            for year in range(clim_time,len(SIE)):   # First, we interpolate the last "clim_year" sept sie to find the next one.
+            
+            for year in range(clim_time,len(SIE)): 
                 deg = self.interp_deg
                 coeff_sie = np.polyfit([y for y in range(clim_time)],SIE[year - clim_time:year,8],deg = deg)
                 coeff_siv = np.polyfit([y for y in range(clim_time)],SIV[year - clim_time:year,8],deg = deg)
-                #coeff_sie = np.polyfit(SIE[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
-                #coeff_siv = np.polyfit(SIV[year - clim_time:year,8],[y for y in range(clim_time)],deg = deg)
                 current_climatology_sie = 0
                 current_climatology_siv = 0
                 for i in range(len(coeff_sie)):
@@ -52,11 +49,6 @@ class ML_frcst():
             else:
                 x = np.concatenate((climatology_sie,summer_sie,),axis = 1)
             
-            #x = np.concatenate((sept_to_dec_last_year_sie,jan_to_may_current_year_sie),axis = 1)
-            
-            # Normalizaton of input datas
-            #sc = StandardScaler()
-            #x = sc.fit_transform(x)
 
             return x
         
@@ -80,7 +72,6 @@ class ML_frcst():
         
         # Creating the neural model
         NN = NN_model.NN(interp_deg = interp_deg, is_siv = self.is_siv, clim_time = clim_time)
-        NN.form()
         NN.constr(epochs = epochs)
         #NN.test()
         self.model = NN.model_SIEFrcst
@@ -211,6 +202,6 @@ class ML_frcst():
         plt.show()
 
 
-ML_frcst = ML_frcst(clim_time = 10, epochs = 150, is_siv=True)
+ML_frcst = ML_frcst(clim_time = 10, epochs = 70, is_siv=True)
 ML_frcst.SIE_frcst(show = True)
 ML_frcst.LPY()
