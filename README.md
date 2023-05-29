@@ -13,4 +13,4 @@ The goal of this project is to:
 
 We use a Neural Network (NN) model. These model work in layer, there is tree type of layer. Input layer (only one), the hidden layers (we can use several of them) and the output layer (only one). We "feed" the NN by the input layer, with the data we think relevant to make the prediction (called the predictors) and these data will propagate through the network. In the end the NN "prediction" comes out by the output layer.
 
-![alt text](https://github.com/AugustinLambotte/Figure/main/1_nevKs6306VMnE3aP-C0zbg.jpg?raw=true)
+![alt text](https://github.com/AugustinLambotte/Figure/blob/main/1_nevKs6306VMnE3aP-C0zbg.jpg?raw=true)
