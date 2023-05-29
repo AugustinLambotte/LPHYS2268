@@ -108,8 +108,8 @@ class NN:
         SIE_mensual_CESM2 *= 1e6 # Passing in [km^2]
         
         SIE_data = [SIE_mensual_plsm,SIE_mensual_CESM2]
-        SIV_data = [SIV_mensual_plsm,SIV_mensual_CESM2]
-
+        SIV_data = [SIV_mensual_plsm,SIV_mensual_CESM2]      
+        
         data_arange(SIE_data,SIV_data)
 
         print('######################')
