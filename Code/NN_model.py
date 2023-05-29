@@ -9,12 +9,13 @@ import tensorflow_probability as tfp
 
 ############# - Extraction of the data - ###############
 class NN:
-    def __init__(self,is_siv,clim_time,interp_deg,file_siv = 'Machine_Learning/Data/SIV_mensual_plsm.txt', file_sie = 'Machine_Learning/Data/SIE_mensual_plsm.txt'):
+    def __init__(self,is_siv,clim_time,interp_deg,file_siv = 'Training_data/SIV_mensual_plsm.txt', file_sie = 'Training_data/SIE_mensual_plsm.txt'):
         """
             This class "NN" create a Neural Network model to predict futur Sea Ice Extend (SIE) 
             based on previous SIE and SIV (Sea ice volume) data.
             
             Parameters:
+            ----------
             clim_time | int: is the range of time over which we want to compute the trend line.
             interp_deg | int: is the degree of interpolation if the trend line. Should be keep to 1 in practice.
             is_siv | bool: True if we want to use the SIV data False if not
@@ -22,11 +23,23 @@ class NN:
         """
         def data_arange(SIE_data,SIV_data, test_size = 0.005):
             """
+                Format the data in order to be used by the network.
+
+                Parameters:
+                ----------
+                SIE_data | list: list of array. Each list element is a N_year x 12 array. Each line for a year (year have to be consecutive)
+                                 and each column for a month. filled with monthl SIE in km^2
+                SIV_data | list: list of array. Each list element is a N_year x 12 array. Each line for a year (year have to be consecutive)
+                                 and each column for a month. filled with monthl SIV in km^2
+                tes_size | float: btwn 0 and 1. Define the proportion of the data which will be separate from the training data
+                                  in order to have a set of test if we need.
+
                 Return:
-                    Format the data in to be used by the network.
-                    -self.x is the inputs data. self.x_train for the train part and self.x_test for the test part
-                        It is made of a climatological trend of septembre SIE and SIV and SIE and SIV for the month of january until may.
-                    -slef.y is the output data, the sept_sie   
+                -------
+                self.x | array: it's the inputs data. self.x_train for the train part and self.x_test for the test part
+                                it is made of an interpolation of the climatological trend of septembre SIE and SIV. And
+                                the SIE and SIV value from Januray to may of the current year.
+                slef.y | array: is the output data, the sept_sie.   
             """
             
             x = np.array([])
@@ -78,6 +91,7 @@ class NN:
                 else:
                     y = np.concatenate((y,current))
             self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,y,test_size = test_size)
+            print(type(self.x_train))
 
         
         self.clim_time = clim_time
@@ -90,9 +104,9 @@ class NN:
         SIE_mensual_plsm = np.genfromtxt(file_sie,delimiter=' ')
         SIV_mensual_plsm = np.genfromtxt(file_siv, delimiter =' ')
 
-        SIE_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIE_CESM2.txt', delimiter = ' ')
-        SIV_mensual_CESM2 = np.genfromtxt('Machine_Learning/Data/CMIP/SIV_CESM2.txt', delimiter = ' ')
-        SIE_mensual_CESM2 *= 1e6
+        SIE_mensual_CESM2 = np.genfromtxt('Training_data/CMIP/SIE_CESM2.txt', delimiter = ' ')
+        SIV_mensual_CESM2 = np.genfromtxt('Training_data/CMIP/SIV_CESM2.txt', delimiter = ' ')
+        SIE_mensual_CESM2 *= 1e6 # Passing in [km^2]
         
         SIE_data = [SIE_mensual_plsm,SIE_mensual_CESM2]
         SIV_data = [SIV_mensual_plsm,SIV_mensual_CESM2]
@@ -109,6 +123,10 @@ class NN:
     def constr(self, epochs = 60):
         """
             Construct the neural network and train him to predict sept_SIE
+
+            Parameters:
+            -----------
+            epochs | int: number of epochs for NN training.
         """
         def normal_distrib_loss(y_true, y_pred):
             """
