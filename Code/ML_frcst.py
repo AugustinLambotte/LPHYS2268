@@ -15,6 +15,7 @@ class ML_frcst():
             It uses the class NN_model to build and train the network before using it.
 
             Parameters:
+            ----------
             clim_time | int: is the range of time over which we want to compute the trend line.
             interp_deg | int: is the degree of interpolation if the trend line. Should be keep to 1 in practice.
             is_siv | bool: True if we want to use the SIV data False if not
@@ -23,6 +24,12 @@ class ML_frcst():
         def data_arange(SIE,SIV):
             """
                 Turns x in the good format for a SIE sept extend forecast based on the shape of NN_model.x tensor.
+                Parameters:
+                ----------
+                SIE | list: list of array. Each list element is a N_year x 12 array. Each line for a year (year have to be consecutive)
+                            and each column for a month. filled with monthl SIE in km^2
+                SIV | list: list of array. Each list element is a N_year x 12 array. Each line for a year (year have to be consecutive)
+                            and each column for a month. filled with monthl SIV in km^2
             """
             climatology_sie = [] # Climatological trend sept sie mean of the "clim_time" last years of the considered year.
             climatology_siv = [] # Climatological trend sept siv mean of the "clim_time" last years of the considered year.
@@ -162,10 +169,15 @@ class ML_frcst():
     def LPY(self):
         """
             Compute the probability of a LPY event using the self.mean_frcsted and self.std_frcsted created by self.SIE_frcst()
+            and compute the scores associated to the forecast.
         """
         def Brier_score(proba_LPY):
             """
                 Compute self.BS and self.BSS the Brier score and the Brier skill score, respectively.
+                
+                Parameters:
+                ----------
+                proba_LPY | array: An array with on each line the probability of the event for the corresponding year.
             """
             
             observation = []

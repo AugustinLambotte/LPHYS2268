@@ -91,7 +91,6 @@ class NN:
                 else:
                     y = np.concatenate((y,current))
             self.x_train,self.x_test,self.y_train,self.y_test = train_test_split(x,y,test_size = test_size)
-            print(type(self.x_train))
 
         
         self.clim_time = clim_time
