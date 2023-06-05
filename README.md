@@ -40,7 +40,7 @@ After the network is train, i.e. all the weight are fixed in the best possible v
 ## How did we use it?
 
 ### The predictors
-We use 12 predictors - i.e. our input layer has 12 neurons. The SIV and SIE of the last 5 month (jan, feb, mar, apr, may) and two linear interpolations, one for the SIE and one for the SIV. These are the next sept SIE and SIV value given by the trend line interpolation of last 10 years. Our SIE data comes from the satelitary record https://osisaf-hl.met.no/v2p1-sea-ice-index and the SIV data from http://psc.apl.uw.edu/research/projects/arctic-sea-ice-volume-anomaly/data/.
+We use 11 predictors - i.e. our input layer has 11 neurons. The SIE of the last 5 months (jan, feb, mar, apr, may), SIV of the last 4 months (jan, feb, mar, apr). (we could have use SIV of may but the data weren't available at the deadline of the project) and two linear interpolations, one for the SIE and one for the SIV These are the next sept SIE and SIV value given by the trend line interpolation of last 10 years. Our SIE data comes from the satelitary record https://osisaf-hl.met.no/v2p1-sea-ice-index and the SIV data from http://psc.apl.uw.edu/research/projects/arctic-sea-ice-volume-anomaly/data/.
 
 ### The training data set
 Our training data set is made of 6419 years of simulated data. 1184 from CMIP and 5235 from PLASIM control run.
