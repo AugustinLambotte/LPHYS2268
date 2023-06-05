@@ -19,7 +19,7 @@ We use a Neural Network (NN) model. These model work in layer, there is tree typ
 There is two types of elements in the network: neurons and connection. The neurons are carrying the information and the connection decide how the information is transmitted between the neurons.
 At the begging only the input layer is filled with the predictors. In our case they are previous value of SIE and SIV (Sea ice Volume). Then the neurons of the input layer propagate their information in the next layer, the first hidden layer. Each neuron is sending its value at all the neuron of the next one (this is what is called a dense network) but the value are weighted by the connection. Indeed, each connection has a weight, between 0 and 1, and this weight descide how much this neurons should send his information in this neuron. By this way the information are propagating through the network until the output layer - where it comes out as "predicted value".
 
-Therefore, the prediction depends on the weight of each connections. This NN is fully determined by its topology - number of layer and neuron by layer -  and the weight assigned on each connection. Note that deeper NN (more hidden layer) allows higher non linearity regression but expose the network to problem such that vanishing/exploding gradient.
+Therefore, the prediction depends on the weight of each connections. This NN is fully determined by its topology - number of layer and neuron by layer -  and the weight assigned on each connection. Note that deeper NN (more hidden layer) allows higher non linearity in the regression but exposes the network to problem such that vanishing/exploding gradient.
 
 How does the NN find good prediction?
 As we said, the only "cursor" the NN has to change the output - given a fix input - are its connections' weight. But how does he determine these weight? This is the purpose of the training phase!
@@ -60,5 +60,5 @@ All the scripts are running under python 3.8, the following package are required
 - scipy
 - netcdf4
 
-The script ML_frcst.py can be run directly. NN_model.py is used by ML_frcst.py to create the Neural network (creation and training over the training data set). All the structure is settle by two class, one in ML_frcst.py for the prediction and oone in NN_model.py for the NN creation, all classes and function are documented. 
+The script ML_frcst.py can be run directly. NN_model.py is used by ML_frcst.py to create the Neural network (creation and training over the training data set). All the structure is settle by two class, one in ML_frcst.py for the prediction and one in NN_model.py for the NN creation, all classes and function are documented. 
 Data are the real world data used for the prediction and Training_data are the data used to train the model.
